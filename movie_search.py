@@ -4,10 +4,16 @@ import os
 
 
 def insert_at_beginning(list_y_index, type_file):
-    list_x = list_y_index.split(type_file)
-    ''.join(list_x[:-1])
-    str_file = list_x[0] + type_file
+    list_y = list_y_index.split(type_file)
+    ''.join(list_y[:-1])
+    str_file = list_y[0] + type_file
     return str_file
+
+
+def remove_date_time(list_x_index, string_insert):
+    new_list = list_x_index.split(string_insert)
+    new_str = new_list[0] + string_insert
+    return new_str
 
 
 def introduction():
@@ -27,7 +33,6 @@ def introduction():
 def responding_links(page_main):
     initial_link_list = []
     for page_index in page_main:
-        # noinspection PyBroadException
         try:
             initial_link_list.append(page_index.a.get('href')[7:][:-88])
         except:
@@ -49,6 +54,25 @@ def responding_links(page_main):
         except:
             pass
     return links_return
+
+
+def else_name_fix(list_x):
+    file = []
+    size = []
+    for z in list_x:
+        split_temp = z.split('  ')  # double space
+        file.append(split_temp[0])
+
+        if 'G' in split_temp[-1]:
+            byte = remove_date_time(split_temp[-1], 'G')
+            size.append(byte.strip().replace('G', 'GB'))
+        elif 'M' in split_temp[-1]:
+            byte = remove_date_time(split_temp[-1], 'M')
+            size.append(byte.strip().replace('M', 'MB'))
+        elif 'K' in split_temp[-1]:
+            byte = remove_date_time(split_temp[-1], 'K')
+            size.append(byte.strip().replace('K', 'KB'))
+    return size
 
 
 def file_and_size(list_input, comp_name):
@@ -83,15 +107,28 @@ def file_and_size(list_input, comp_name):
 
         name_size = [z for z in block_list if any(index in z for index in href_temp_47)]
 
-        mod_name_size = []
+        main_name_size = []
+        else_name_size = []
         for x in name_size:
             if '\r' in x:
-                mod_name_size.append((x.replace('\r', '')))
+                main_name_size.append((x.replace('\r', '')))
             elif '\xa0' in x:
-                mod_name_size.append((x.replace('\xa0', '')))
+                main_name_size.append((x.replace('\xa0', '')))
+            else:
+                else_name_size.append(x)
+
+        if len(else_name_size) > 0:
+            fin_link_list = [link + x for x in href_f]
+            file_size = else_name_fix(else_name_size)
+
+            _int_ = 0
+            for _link_ in fin_link_list:
+                link_size_dict[_link_] = file_size[_int_]
+                _int_ += 1
+            continue
 
         _size_final = []
-        for z in mod_name_size:
+        for z in main_name_size:
             split_temp = z.split(' ')
 
             for index in split_temp:
@@ -129,6 +166,7 @@ def file_and_size(list_input, comp_name):
         for _link_ in fin_link_list:
             link_size_dict[_link_] = _size_final[index_size]
             index_size += 1
+
         return link_size_dict
 
 
@@ -141,7 +179,7 @@ def main():
     title = list(user_search.split(' '))  # splits each word from 'question_title' into a list: 'title'
 
     google_link = ('https://www.google.com/search?q=intext%3A%22' + str('+'.join(
-        title)) + '%22+intitle%3A%22index.of%22++%2B(wmv|mpg|avi|mp4|mov)+-inurl%3A(''jsp|pl|php|html|aspx|htm|cf|shtml)')  # adds each index from title list to google link
+        title)) + '%22+intitle%3A%22index.of%22++%2B(wmv|mpg|avi|mp4|mov)+-inurl%3A(''jsp|pl|php|html|aspx|htm|cf|shtml)')
 
     page_source = requests.get(google_link).text  # creates variable 'page_source' which requests link
     page_source = BeautifulSoup(page_source, 'lxml')  # 'page_source' parsed through BeautifulSoup w/ 'lxml'
