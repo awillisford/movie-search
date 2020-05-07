@@ -3,16 +3,14 @@ from bs4 import BeautifulSoup
 import os
 
 
-def insert_at_beginning(list_y_index, type_file):
-    list_y = list_y_index.split(type_file)
-    ''.join(list_y[:-1])
-    str_file = list_y[0] + type_file
+    list_ = list_index.split(type_file)
+    str_file = list_[0] + type_file
     return str_file
 
 
-def remove_date_time(list_x_index, string_insert):
-    new_list = list_x_index.split(string_insert)
-    new_str = new_list[0] + string_insert
+def remove_date_time(list_index, string):  # used in other_fix()
+    new_list = list_index.split(string)
+    new_str = new_list[0] + string
     return new_str
 
 
@@ -30,144 +28,139 @@ def introduction():
     return user_input
 
 
-def responding_links(page_main):
-    initial_link_list = []
-    for page_index in page_main:
+def responding_links(google_page):
+    google_links = []
+    for link in google_page:
         try:
-            initial_link_list.append(page_index.a.get('href')[7:][:-88])
+            google_links.append(link.a.get('href')[7:-88])
         except:
             pass
 
     blacklist_file = open('blacklist.txt').read()  # for blacklisting links that do not give video files
     blacklist = blacklist_file.split('\n')
+    included_links = [link for link in google_links if not any(name in link for name in blacklist)]
 
-    blacklisted_pass_list = [index for index in initial_link_list if not any(keyword in index for keyword in blacklist)]
-
-    print()
-    links_return = []
-    for index in blacklisted_pass_list:
-        # noinspection PyBroadException
+    return_links = []
+    for link in included_links:
         try:
-            index_c = requests.head(index, timeout=6, allow_redirects=False)
-            if index_c.status_code == 200:
-                links_return.append(index)
+            link_status = requests.head(link, timeout=6, allow_redirects=False)
+            if link_status.status_code == 200:
+                return_links.append(link)
         except:
             pass
-    return links_return
+    return return_links
 
 
-def else_name_fix(list_x):
+def other_fix(list_input):
     file = []
     size = []
-    for z in list_x:
-        split_temp = z.split('  ')  # double space
-        file.append(split_temp[0])
+    for index in list_input:
+        _list_ = index.split('  ')  # double space
+        file.append(_list_[0])
 
-        if 'G' in split_temp[-1]:
-            byte = remove_date_time(split_temp[-1], 'G')
+        if 'G' in _list_[-1]:
+            byte = remove_date_time(_list_[-1], 'G')
             size.append(byte.strip().replace('G', 'GB'))
-        elif 'M' in split_temp[-1]:
-            byte = remove_date_time(split_temp[-1], 'M')
+        elif 'M' in _list_[-1]:
+            byte = remove_date_time(_list_[-1], 'M')
             size.append(byte.strip().replace('M', 'MB'))
-        elif 'K' in split_temp[-1]:
-            byte = remove_date_time(split_temp[-1], 'K')
+        elif 'K' in _list_[-1]:
+            byte = remove_date_time(_list_[-1], 'K')
             size.append(byte.strip().replace('K', 'KB'))
     return size
 
 
-def file_and_size(list_input, comp_name):
-    link_size_dict = {}
+def file_and_size(list_input, compare_name):
+    dict_link_size = {}
     for link in list_input:
-        size_get = requests.get(link).text
-        size_get = BeautifulSoup(size_get, 'lxml')
+        size = requests.get(link).text
+        size = BeautifulSoup(size, 'lxml')
+        link_anchors = size.find_all('a')
+        size = size.text.split('\n')
 
-        link_get = size_get.find_all('a')
-        href_get = [z.get('href') for z in link_get]  # retrieves links on open directories
-        href_get.pop(0)  # removes '../' at beginning of list
+        href = [z.get('href') for z in link_anchors]  # retrieves links on open directories
+        href.pop(0)  # removes '../' at beginning of list
 
         href_temp = []
         try:
-            href_temp = [z for z in href_get if any(name in z for name in comp_name)]
+            href_temp = [index for index in href if any(name in index for name in compare_name)]
         except TypeError:
             pass
 
-        file_test = ['.mkv', '.avi', '.mp4']
-        file_not = ['.srt', 'Index of', '.html', 'mp3']
-        href_f = [z for z in href_temp if any(file in z for file in file_test) if not all(x in z for x in file_not)]
+        correct_file = ['.mkv', '.avi', '.mp4']
+        exclude_file = ['.srt', 'Index of', '.html', 'mp3']
+        href_final = [z for z in href_temp if any(file in z for file in correct_file) if not all(x in z for x in exclude_file)]
 
         href_temp.clear()
-        for z in href_f:
+        for z in href_final:
             href_temp.append(
                 z.replace('%20', ' ').replace('%28', '(').replace('%29', ')').replace('%5B', '[').replace('%5D', ']'))
 
-        href_temp_47 = [z[:47] for z in href_temp]
+        # compares first 47 characters in the name of files found, to see if it matches search term
+        href_47 = [z[:47] for z in href_temp]
+        name_size = [z for z in size if any(index in z for index in href_47)]
 
-        block_text = size_get.text
-        block_list = block_text.split('\n')
-
-        name_size = [z for z in block_list if any(index in z for index in href_temp_47)]
-
-        main_name_size = []
-        else_name_size = []
+        default_directory = []
+        other_directory = []
         for x in name_size:
             if '\r' in x:
-                main_name_size.append((x.replace('\r', '')))
+                default_directory.append((x.replace('\r', '')))
             elif '\xa0' in x:
-                main_name_size.append((x.replace('\xa0', '')))
+                default_directory.append((x.replace('\xa0', '')))
             else:
-                else_name_size.append(x)
+                other_directory.append(x)
 
-        if len(else_name_size) > 0:
-            fin_link_list = [link + x for x in href_f]
-            file_size = else_name_fix(else_name_size)
+        if len(other_directory) > 0:
+            final_links = [link + x for x in href_final]
+            file_size = other_fix(other_directory)
 
             _int_ = 0
-            for _link_ in fin_link_list:
-                link_size_dict[_link_] = file_size[_int_]
+            for _link_ in final_links:
+                dict_link_size[_link_] = file_size[_int_]
                 _int_ += 1
             continue
 
-        _size_final = []
-        for z in main_name_size:
-            split_temp = z.split(' ')
+        size_final = []
+        for z in default_directory:
+            list_ = z.split(' ')
 
-            for index in split_temp:
+            for index in list_:
                 if '.avi' in index:
                     beg_str = insert_at_beginning(index, '.avi')
-                    split_temp.remove(index)
-                    split_temp.insert(0, beg_str)
+                    list_.remove(index)
+                    list_.insert(0, beg_str)
                 elif '.mkv' in index:
                     beg_str = insert_at_beginning(index, '.mkv')
-                    split_temp.remove(index)
-                    split_temp.insert(0, beg_str)
+                    list_.remove(index)
+                    list_.insert(0, beg_str)
                 elif '.mp4' in index:
                     beg_str = insert_at_beginning(index, '.mp4')
-                    split_temp.remove(index)
-                    split_temp.insert(0, beg_str)
+                    list_.remove(index)
+                    list_.insert(0, beg_str)
 
-            split_temp = [split_temp[0], split_temp[-1]]
+            list_ = [list_[0], list_[-1]]
 
-            if 'K' in split_temp[-1]:
-                _size_final.append(split_temp[-1].replace('K', 'KB'))
-            elif 'G' in split_temp[-1]:
-                _size_final.append(split_temp[-1].replace('G', 'GB'))
-            elif 'M' in split_temp[-1]:
-                _size_final.append(split_temp[-1].replace('M', 'MB'))
+            if 'K' in list_[-1]:
+                size_final.append(list_[-1].replace('K', 'KB'))
+            elif 'G' in list_[-1]:
+                size_final.append(list_[-1].replace('G', 'GB'))
+            elif 'M' in list_[-1]:
+                size_final.append(list_[-1].replace('M', 'MB'))
             else:
-                byte_divide = round((int(split_temp[-1]) / 1000000000), 2)
+                byte_divide = round((int(list_[-1]) / 1000000000), 2)
                 if byte_divide >= 1:
-                    _size_final.append(str(byte_divide) + 'GB')
+                    size_final.append(str(byte_divide) + 'GB')
                 else:
-                    _size_final.append(str(byte_divide) + 'MB')
+                    size_final.append(str(byte_divide) + 'MB')
 
-        fin_link_list = [link + x for x in href_f]
+        final_links = [link + x for x in href_final]
 
         index_size = 0
-        for _link_ in fin_link_list:
-            link_size_dict[_link_] = _size_final[index_size]
+        for _link_ in final_links:
+            dict_link_size[_link_] = size_final[index_size]
             index_size += 1
 
-        return link_size_dict
+        return dict_link_size
 
 
 def main():
@@ -181,11 +174,11 @@ def main():
     google_link = ('https://www.google.com/search?q=intext%3A%22' + str('+'.join(
         title)) + '%22+intitle%3A%22index.of%22++%2B(wmv|mpg|avi|mp4|mov)+-inurl%3A(''jsp|pl|php|html|aspx|htm|cf|shtml)')
 
-    page_source = requests.get(google_link).text  # creates variable 'page_source' which requests link
-    page_source = BeautifulSoup(page_source, 'lxml')  # 'page_source' parsed through BeautifulSoup w/ 'lxml'
-    page_source = page_source.find_all('div', class_='kCrYT')  # searched to find 'div' and 'class="KCrYT"'
+    google_page = requests.get(google_link).text  # creates variable 'page_source' which requests link
+    google_page = BeautifulSoup(google_page, 'lxml')  # 'page_source' parsed through BeautifulSoup w/ 'lxml'
+    google_page = google_page.find_all('div', class_='kCrYT')  # searched to find 'div' and 'class="KCrYT"'
 
-    link_list = responding_links(page_source)
+    link_list = responding_links(google_page)
 
     print('\nResponding Links:')
     for index in link_list:
@@ -221,5 +214,3 @@ def main():
 
     input('\nPress enter to exit.')
 
-
-main()
