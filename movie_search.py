@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import os
 
 
+def insert_at_beginning(list_index, type_file):  # used in file_and_size()
     list_ = list_index.split(type_file)
     str_file = list_[0] + type_file
     return str_file
